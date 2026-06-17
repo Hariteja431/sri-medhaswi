@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const authCookie = request.cookies.get('medhaswi_admin_session');
   
   // Exclude login page, API routes, static files, next static assets
