@@ -6,7 +6,7 @@ import 'katex/dist/katex.min.css';
 import Latex from "react-latex-next";
 import { Button } from "./ui/button";
 import { getExplanations } from "@/app/actions";
-import { Printer, ArrowLeft, Lightbulb, ChevronDown, Download } from "lucide-react";
+import { ArrowLeft, ChevronDown, FileText, ListChecks, BookOpen } from "lucide-react";
 
 interface Question {
   id: string;
@@ -39,6 +39,7 @@ export default function PaperPreview({ questions, onBack }: { questions: Questio
   const handlePrintQuestions = () => {
     setPrintAnswersMode(false);
     setPrintKeyOnlyMode(false);
+    setShowKey({}); // Hide any manually opened explanations
     setTimeout(() => window.print(), 100);
   };
 
@@ -104,16 +105,16 @@ export default function PaperPreview({ questions, onBack }: { questions: Questio
             </Button>
           )}
           <Button variant="outline" onClick={handlePrintQuestions} className="border-zinc-300 flex-1 sm:flex-none">
-            <Download className="w-4 h-4 mr-2" />
-            Questions
+            <FileText className="w-4 h-4 mr-2" />
+            Download Questions
           </Button>
           <Button variant="outline" onClick={handlePrintKeyOnly} className="border-zinc-300 flex-1 sm:flex-none">
-            <Download className="w-4 h-4 mr-2" />
-            Key Only
+            <ListChecks className="w-4 h-4 mr-2" />
+            Download Key Only
           </Button>
           <Button className="bg-black hover:bg-zinc-800 text-white flex-1 sm:flex-none" onClick={handlePrintAnswers}>
-            <Lightbulb className="w-4 h-4 mr-2" />
-            Full Solutions
+            <BookOpen className="w-4 h-4 mr-2" />
+            Download Solutions
           </Button>
         </div>
       </div>
@@ -178,7 +179,7 @@ export default function PaperPreview({ questions, onBack }: { questions: Questio
                         </Button>
 
                         {(isShowingKey || printAnswersMode) && (
-                          <div className={`mt-4 p-5 rounded-lg bg-zinc-50 border border-zinc-200 print:block print:bg-transparent print:border-zinc-400 print:p-4 ${!printAnswersMode && !isShowingKey ? 'hidden' : ''}`}>
+                          <div className={`mt-4 p-5 rounded-lg bg-zinc-50 border border-zinc-200 print:block print:bg-transparent print:border-l-4 print:border-l-black print:pl-6 print:border-t-0 print:border-r-0 print:border-b-0 print:rounded-none print:mt-6 ${!printAnswersMode && !isShowingKey ? 'hidden' : ''}`}>
                             <div className="mb-4">
                               <span className="font-bold text-zinc-900 print:text-black">Correct Option: </span>
                               <span className="font-bold text-lg">{q.correct_options?.join(", ") || "N/A"}</span>
