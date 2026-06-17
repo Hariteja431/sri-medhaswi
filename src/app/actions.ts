@@ -171,3 +171,29 @@ export async function deletePaper(id: string) {
     return { success: false, error: error.message };
   }
 }
+
+export async function loginUser(formData: FormData) {
+  const email = formData.get("email");
+  const password = formData.get("password");
+
+  if (email === "srimedhaswi@edu.in" && password === "*Srimedhaswi1234") {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    cookieStore.set("medhaswi_admin_session", "true", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+      path: "/",
+    });
+    return { success: true };
+  } else {
+    return { success: false, error: "Invalid credentials" };
+  }
+}
+
+export async function logoutUser() {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  cookieStore.delete("medhaswi_admin_session");
+  return { success: true };
+}
