@@ -208,8 +208,10 @@ export default function PaperGeneratorWizard() {
                   if (!acc[s]) acc[s] = [];
                   acc[s].push(q);
                   return acc;
-                }, {} as Record<string, typeof draftPaper.selected>)
-            ).sort(([a], [b]) => a.localeCompare(b)).map(([subject, questions]) => (
+                }, {} as Record<string, any[]>)
+            ).sort(([a], [b]) => a.localeCompare(b)).map(([subject, qList]) => {
+              const questions = qList as any[];
+              return (
               <div key={`selected-${subject}`} className="mb-6">
                 <h3 className="text-lg font-semibold text-zinc-800 mb-4 pb-2 border-b border-zinc-200 capitalize">{subject} ({questions.length})</h3>
                 <div className="space-y-4">
@@ -239,7 +241,7 @@ export default function PaperGeneratorWizard() {
                   ))}
                 </div>
               </div>
-            ))}
+            )})}
           </TabsContent>
 
           <TabsContent value="available" className="space-y-8 mt-0 w-full">
@@ -252,8 +254,10 @@ export default function PaperGeneratorWizard() {
                   if (!acc[s]) acc[s] = [];
                   acc[s].push(q);
                   return acc;
-                }, {} as Record<string, typeof draftPaper.available>)
-            ).sort(([a], [b]) => a.localeCompare(b)).map(([subject, questions]) => (
+                }, {} as Record<string, any[]>)
+            ).sort(([a], [b]) => a.localeCompare(b)).map(([subject, qList]) => {
+              const questions = qList as any[];
+              return (
               <div key={`available-${subject}`} className="mb-6">
                 <h3 className="text-lg font-semibold text-zinc-800 mb-4 pb-2 border-b border-zinc-200 capitalize">{subject} ({questions.length})</h3>
                 <div className="space-y-4">
@@ -283,7 +287,7 @@ export default function PaperGeneratorWizard() {
                   ))}
                 </div>
               </div>
-            ))}
+            )})}
           </TabsContent>
         </Tabs>
       </div>
