@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { getChapters, generatePaper, savePaper } from "@/app/actions";
 import { getChapterClassYear } from "@/lib/syllabus";
 import PaperPreview from "./paper-preview";
+import { LatexText } from "./latex-text";
+import { CustomQuestionModal, CustomQuestionData } from "./custom-question-modal";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -31,6 +33,10 @@ export default function PaperGeneratorWizard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [draftPaper, setDraftPaper] = useState<{ selected: any[], available: any[] } | null>(null);
   const [generatedPaper, setGeneratedPaper] = useState<any>(null);
+  const [subjectFilter, setSubjectFilter] = useState<string>("All");
+
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  const [customExplanations, setCustomExplanations] = useState<Record<string, string>>({});
 
   const toggleSubject = (subject: Subject) => {
     setSubjects((prev) => {
@@ -120,8 +126,25 @@ export default function PaperGeneratorWizard() {
               Back to Config
             </Button>
             <Button 
+              variant="outline"
+              className="border-zinc-300 text-zinc-700 bg-white hover:bg-zinc-50 shadow-sm"
+              onClick={() => setIsCustomModalOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Custom Question
+            </Button>
+            <Button 
               className="bg-black text-white hover:bg-zinc-800"
               onClick={async () => {
+                const { savePaper, saveCustomQuestionsToBank } = await import("@/app/actions");
+                
+                // Extract custom questions
+                const customQs = draftPaper.selected.filter(q => q.is_custom);
+                if (customQs.length > 0) {
+                  // Save them to global bank
+                  await saveCustomQuestionsToBank(customQs, customExplanations);
+                }
+
                 const res = await savePaper({
                   title: `JEE Standard Test - ${new Date().toLocaleDateString()}`,
                   examType,
@@ -140,64 +163,125 @@ export default function PaperGeneratorWizard() {
           </div>
         </div>
 
-        <Tabs defaultValue="selected" className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="selected">Selected Questions ({draftPaper.selected.length})</TabsTrigger>
-            <TabsTrigger value="available">Available Pool ({draftPaper.available.length})</TabsTrigger>
-          </TabsList>
+        <CustomQuestionModal 
+          isOpen={isCustomModalOpen} 
+          onClose={() => setIsCustomModalOpen(false)}
+          availableChapters={availableChapters}
+          onSave={(q, exp) => {
+            setDraftPaper(prev => prev ? {
+              ...prev,
+              selected: [...prev.selected, q]
+            } : null);
+            if (exp) {
+              setCustomExplanations(prev => ({ ...prev, [q.id]: exp }));
+            }
+          }}
+        />
+
+        <Tabs defaultValue="selected" className="w-full relative flex-col">
+          <div className="sticky top-24 z-20 flex flex-col items-end gap-3 mb-6 w-full pointer-events-none">
+            <TabsList className="shadow-lg border border-zinc-200 bg-white/90 backdrop-blur-sm pointer-events-auto">
+              <TabsTrigger value="selected" className="data-[state=active]:bg-zinc-100">Selected Questions ({draftPaper.selected.length})</TabsTrigger>
+              <TabsTrigger value="available" className="data-[state=active]:bg-zinc-100">Available Pool ({draftPaper.available.length})</TabsTrigger>
+            </TabsList>
+            
+            <div className="flex flex-wrap justify-end gap-2 pointer-events-auto bg-white/90 backdrop-blur-sm p-1.5 rounded-lg border border-zinc-200 shadow-sm">
+               {['All', 'Physics', 'Chemistry', 'Mathematics'].map(subj => (
+                 <button 
+                   key={subj} 
+                   onClick={() => setSubjectFilter(subj)}
+                   className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${subjectFilter === subj ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'}`}
+                 >
+                   {subj}
+                 </button>
+               ))}
+            </div>
+          </div>
           
-          <TabsContent value="selected" className="space-y-4">
+          <TabsContent value="selected" className="space-y-8 mt-0 w-full">
             {draftPaper.selected.length === 0 && <p className="text-zinc-500">No questions selected.</p>}
-            {draftPaper.selected.map((q, idx) => (
-              <div key={q.id + '-selected-' + idx} className="p-5 bg-white border border-zinc-200 rounded-lg flex flex-col sm:flex-row justify-between items-start gap-6 shadow-sm">
-                <div className="flex-1">
-                  <div className="flex gap-2 mb-3">
-                    <Badge variant="secondary" className="bg-zinc-100 text-zinc-700 font-medium hover:bg-zinc-100">{q.subject}</Badge>
-                    <Badge variant="outline" className="border-zinc-200 text-zinc-600">{q.difficulty}</Badge>
-                  </div>
-                  <div className="text-sm text-zinc-800 leading-relaxed font-serif" dangerouslySetInnerHTML={{ __html: q.question_text }} />
+            {Object.entries(
+              draftPaper.selected
+                .filter(q => subjectFilter === 'All' || (q.subject && q.subject.toLowerCase() === subjectFilter.toLowerCase()))
+                .reduce((acc, q) => {
+                  const s = q.subject || 'Other';
+                  if (!acc[s]) acc[s] = [];
+                  acc[s].push(q);
+                  return acc;
+                }, {} as Record<string, typeof draftPaper.selected>)
+            ).sort(([a], [b]) => a.localeCompare(b)).map(([subject, questions]) => (
+              <div key={`selected-${subject}`} className="mb-6">
+                <h3 className="text-lg font-semibold text-zinc-800 mb-4 pb-2 border-b border-zinc-200 capitalize">{subject} ({questions.length})</h3>
+                <div className="space-y-4">
+                  {questions.map((q, idx) => (
+                    <div key={q.id + '-selected-' + idx} className="p-5 bg-white border border-zinc-200 rounded-lg flex flex-col sm:flex-row justify-between items-start gap-6 shadow-sm">
+                      <div className="flex-1 w-full overflow-hidden">
+                        <div className="flex gap-2 mb-3">
+                          <Badge variant="secondary" className="bg-zinc-100 text-zinc-700 font-medium hover:bg-zinc-100">{q.subject}</Badge>
+                          <Badge variant="outline" className="border-zinc-200 text-zinc-600">{q.difficulty}</Badge>
+                        </div>
+                        <LatexText html={q.question_text} className="text-sm text-zinc-800 leading-relaxed font-serif" />
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 shadow-sm"
+                        onClick={() => {
+                          setDraftPaper({
+                            selected: draftPaper.selected.filter(x => x.id !== q.id),
+                            available: [q, ...draftPaper.available]
+                          })
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                  onClick={() => {
-                    setDraftPaper({
-                      selected: draftPaper.selected.filter(x => x.id !== q.id),
-                      available: [q, ...draftPaper.available]
-                    })
-                  }}
-                >
-                  Remove
-                </Button>
               </div>
             ))}
           </TabsContent>
 
-          <TabsContent value="available" className="space-y-4">
+          <TabsContent value="available" className="space-y-8 mt-0 w-full">
             {draftPaper.available.length === 0 && <p className="text-zinc-500">No available questions to swap.</p>}
-            {draftPaper.available.map((q, idx) => (
-              <div key={q.id + '-avail-' + idx} className="p-5 bg-white border border-zinc-200 rounded-lg flex flex-col sm:flex-row justify-between items-start gap-6 shadow-sm opacity-80 hover:opacity-100 transition-opacity">
-                <div className="flex-1">
-                  <div className="flex gap-2 mb-3">
-                    <Badge variant="secondary" className="bg-zinc-100 text-zinc-700 font-medium hover:bg-zinc-100">{q.subject}</Badge>
-                    <Badge variant="outline" className="border-zinc-200 text-zinc-600">{q.difficulty}</Badge>
-                  </div>
-                  <div className="text-sm text-zinc-800 leading-relaxed font-serif" dangerouslySetInnerHTML={{ __html: q.question_text }} />
+            {Object.entries(
+              draftPaper.available
+                .filter(q => subjectFilter === 'All' || (q.subject && q.subject.toLowerCase() === subjectFilter.toLowerCase()))
+                .reduce((acc, q) => {
+                  const s = q.subject || 'Other';
+                  if (!acc[s]) acc[s] = [];
+                  acc[s].push(q);
+                  return acc;
+                }, {} as Record<string, typeof draftPaper.available>)
+            ).sort(([a], [b]) => a.localeCompare(b)).map(([subject, questions]) => (
+              <div key={`available-${subject}`} className="mb-6">
+                <h3 className="text-lg font-semibold text-zinc-800 mb-4 pb-2 border-b border-zinc-200 capitalize">{subject} ({questions.length})</h3>
+                <div className="space-y-4">
+                  {questions.map((q, idx) => (
+                    <div key={q.id + '-avail-' + idx} className="p-5 bg-white border border-zinc-200 rounded-lg flex flex-col sm:flex-row justify-between items-start gap-6 shadow-sm opacity-80 hover:opacity-100 transition-opacity">
+                      <div className="flex-1 w-full overflow-hidden">
+                        <div className="flex gap-2 mb-3">
+                          <Badge variant="secondary" className="bg-zinc-100 text-zinc-700 font-medium hover:bg-zinc-100">{q.subject}</Badge>
+                          <Badge variant="outline" className="border-zinc-200 text-zinc-600">{q.difficulty}</Badge>
+                        </div>
+                        <LatexText html={q.question_text} className="text-sm text-zinc-800 leading-relaxed font-serif" />
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="shrink-0 text-zinc-900 border-zinc-300 hover:bg-zinc-100 shadow-sm"
+                        onClick={() => {
+                          setDraftPaper({
+                            selected: [...draftPaper.selected, q],
+                            available: draftPaper.available.filter(x => x.id !== q.id)
+                          })
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-1" /> Add
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-zinc-900 border-zinc-300 hover:bg-zinc-100"
-                  onClick={() => {
-                    setDraftPaper({
-                      selected: [...draftPaper.selected, q],
-                      available: draftPaper.available.filter(x => x.id !== q.id)
-                    })
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add
-                </Button>
               </div>
             ))}
           </TabsContent>

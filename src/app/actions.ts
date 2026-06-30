@@ -197,3 +197,37 @@ export async function logoutUser() {
   cookieStore.delete("medhaswi_admin_session");
   return { success: true };
 }
+
+export async function saveCustomQuestionsToBank(questions: any[], explanations: Record<string, string>) {
+  try {
+    const { doc, setDoc } = await import("firebase/firestore");
+    
+    // Save to questions collection and explanations collection
+    for (const q of questions) {
+      const qRef = doc(collection(db, "questions"), q.id);
+      
+      // We also need to add standard fields for the global question bank
+      const qData = {
+        ...q,
+        exam_type: "jee-main", // default for now
+        timestamp: Date.now()
+      };
+      
+      await setDoc(qRef, qData);
+      
+      const expText = explanations[q.id];
+      if (expText) {
+        const expRef = doc(collection(db, "explanations"), q.id);
+        await setDoc(expRef, {
+          question_id: q.id,
+          explanation_text: expText,
+          timestamp: Date.now()
+        });
+      }
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error saving custom questions:", error);
+    return { success: false, error: error.message };
+  }
+}
